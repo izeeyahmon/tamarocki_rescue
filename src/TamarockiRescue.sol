@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.7;
-
-import "@openzeppelin/contracts/access/Ownable.sol";
+pragma solidity ^0.8.15;
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol"
 import "erc721a/contracts/ERC721A.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {ECDSA} "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract CaveV2 is ERC721A, Ownable {
     using ECDSA for bytes32;
