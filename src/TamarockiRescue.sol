@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0
 
+/*===================================================
+    _______
+   /       \
+  /         \
+ | Tamarocki |
+ |  Rescue   |
+  \         /
+   \_______/
+=====================================================*/
 pragma solidity ^0.8.15;
 
 import {ERC721A} from "ERC721A/ERC721A.sol";
 import {Ownable} from "@openzeppelin/access/Ownable.sol";
 import {ECDSA} from "@openzeppelin/utils/cryptography/ECDSA.sol";
 import {Strings} from "@openzeppelin/utils/Strings.sol";
+import {OperatorFilterer} from "closedsea/Operatorfilterer.sol";
+import {ERC2981} from "@openzeppelin/token/common/ERC2981.sol";
 
-contract TamarockiRescue is ERC721A, Ownable {
+contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     /* Setting the Variables */
     using ECDSA for bytes32;
 
@@ -18,6 +29,7 @@ contract TamarockiRescue is ERC721A, Ownable {
     bool ogSaleLive;
     bool isRevealed;
     bool finalPhase;
+    bool public operatorFilteringEnabled;
 
     uint256 public constant maxRockSupply = 10001;
     uint8 public constant allowance = 2;
@@ -35,6 +47,9 @@ contract TamarockiRescue is ERC721A, Ownable {
         setBaseURI(_BaseURI);
         setNotRevealedURI(_NotRevealedUri);
         _signerAddress = signerAddress_;
+        _registerForOperatorFiltering();
+        operatorFilteringEnabled = true;
+        _setDefaultRoyalty(msg.sender, 500);
     }
 
     modifier callerIsUser() {
@@ -79,6 +94,73 @@ contract TamarockiRescue is ERC721A, Ownable {
         isRevealed = _state;
     }
 
+    /* Operator Filterer Area*/
+
+    function setApprovalForAll(address operator, bool approved)
+        public
+        override (ERC721A)
+        onlyAllowedOperatorApproval(operator)
+    {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    function approve(address operator, uint256 tokenId)
+        public
+        payable
+        override (ERC721A)
+        onlyAllowedOperatorApproval(operator)
+    {
+        super.approve(operator, tokenId);
+    }
+
+    function transferFrom(address from, address to, uint256 tokenId)
+        public
+        payable
+        override (ERC721A)
+        onlyAllowedOperator(from)
+    {
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId)
+        public
+        payable
+        override (ERC721A)
+        onlyAllowedOperator(from)
+    {
+        super.safeTransferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
+        public
+        payable
+        override (ERC721A)
+        onlyAllowedOperator(from)
+    {
+        super.safeTransferFrom(from, to, tokenId, data);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override (ERC721A, ERC2981) returns (bool) {
+        // Supports the following `interfaceId`s:
+        // - IERC165: 0x01ffc9a7
+        // - IERC721: 0x80ac58cd
+        // - IERC721Metadata: 0x5b5e139f
+        // - IERC2981: 0x2a55205a
+        return ERC721A.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId);
+    }
+
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyOwner {
+        _setDefaultRoyalty(receiver, feeNumerator);
+    }
+
+    function setOperatorFilteringEnabled(bool value) public onlyOwner {
+        operatorFilteringEnabled = value;
+    }
+
+    function _operatorFilteringEnabled() internal view override returns (bool) {
+        return operatorFilteringEnabled;
+    }
+
     /* This is the OG Mint without an auction */
     /* Note :to izee test multiple mints with less than the allowed if its allowed 
     test also if condensing the two if statements save gas it shouldn't since it would an OR opcode
@@ -106,7 +188,7 @@ contract TamarockiRescue is ERC721A, Ownable {
     }
     /* Final phase that releases 10 rocks per day with only qualified members that are allowed */
 
-    function mintPerDay() public payable {}
+    function mintPerDay() public payable callerIsUser {}
 
     function batchTransferFrom(address _from, address _to, uint256[] memory _tokenIds) public {
         unchecked {
@@ -126,7 +208,7 @@ contract TamarockiRescue is ERC721A, Ownable {
 
     function withdraw() external payable onlyOwner {
         (bool success,) = msg.sender.call{value: address(this).balance}("");
-        if (success) revert TransferFailed();
+        if (!success) revert TransferFailed();
     }
 }
 
