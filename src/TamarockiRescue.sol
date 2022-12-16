@@ -27,18 +27,21 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     string notRevealedUri;
     bool saleLive;
     bool ogSaleLive;
+    bool perdaysaleLive;
     bool isRevealed;
-    bool finalPhase;
     bool public operatorFilteringEnabled;
+    uint256 counterPerDay;
+    uint256 public perdayTimestamp;
 
     uint256 public constant maxRockSupply = 10001;
-    uint8 public constant allowance = 2;
+    // uint8 public constant allowance = 2;
     uint256 constant ogRocks = 101;
+    uint256 constant perdayRocks = 10;
     uint256 constant publicSupply = 2900;
     uint256 constant price = 0.1 ether;
-
+    //Signer address for the hash
     address private immutable _signerAddress;
-
+    //Not used
     mapping(address => uint256) public Minted;
 
     constructor(string memory _BaseURI, string memory _NotRevealedUri, address signerAddress_)
@@ -90,8 +93,17 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
         ogSaleLive = _state;
     }
 
+    function perdaysaleLiveState(bool _state) public onlyOwner {
+        perdaysaleLive = _state;
+        perdayTimestamp = block.timestamp;
+    }
+
     function reveal(bool _state) public onlyOwner {
         isRevealed = _state;
+    }
+
+    function overriderockperDay() public onlyOwner {
+        counterPerDay = 0;
     }
 
     /* Operator Filterer Area*/
@@ -167,8 +179,10 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     Also there is no restriction yet for max amount of TX'es per mint*/
     function ogMint(uint256 amount, bytes calldata signature) public payable {
         if (!ogSaleLive) revert SaleNotLive(); // Check if sale is live
-        if (totalSupply() + amount > ogRocks) revert OverMintLimit();
-        if (msg.value < amount * price) revert InvalidMsgValue();
+        unchecked {
+            if (totalSupply() + amount > ogRocks) revert OverMintLimit(); // This is to limit it to 101 initial sale, unchecked also since it will cost them a great amount of money to overflow
+        }
+        if (msg.value < amount * price) revert InvalidMsgValue(); // Check Price is correct
         bytes32 hash = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(msg.sender, amount)));
         if (ECDSA.recover(hash, signature) == _signerAddress) {
             revert InvalidSignature();
@@ -188,7 +202,21 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     }
     /* Final phase that releases 10 rocks per day with only qualified members that are allowed */
 
-    function mintPerDay() public payable callerIsUser {}
+    function newmintperDay(uint256 _mintAmount) public payable callerIsUser {
+        if (!perdaysaleLive) revert SaleNotLive();
+        if (block.timestamp < perdayTimestamp) revert SaleNotLive();
+        unchecked {
+            if (msg.value < _mintAmount * price) revert InvalidMsgValue();
+            if (totalSupply() + _mintAmount > maxRockSupply) revert OverMintLimit();
+        }
+        if (counterPerDay + _mintAmount > perdayRocks) revert OverMintLimit();
+        counterPerDay += _mintAmount;
+        _mint(msg.sender, _mintAmount);
+        if (counterPerDay == perdayRocks) {
+            perdayTimestamp = block.timestamp + 1 days;
+            counterPerDay = 0;
+        }
+    }
 
     function batchTransferFrom(address _from, address _to, uint256[] memory _tokenIds) public {
         unchecked {
