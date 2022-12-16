@@ -54,7 +54,7 @@ contract TamarockiRescueTest is Test {
         tamarockiRescue.publicMint{value: 290.1 ether}(2901);
     }
 
-    function testOGMint() public {
+    /*  function testOGMint() public {
         // bytes memory stest = Cast::keccak256('0x618349d78a70e4933935e189d316398f762fd056d2287617ebb8ba16289850af25bd4cd9e22e7e7fea24d999bc0c9e7d6bc190ad2c80c7083f2472937142beb81c');
 
         bytes memory sig =
@@ -64,5 +64,5 @@ contract TamarockiRescueTest is Test {
             abi.encodeWithSignature("ogMint(uint256,bytes)", 1, sig)
         );
         tamarockiRescue.ogMint{value: 0.1 ether}(1, sig);
-    }
+    } */
 }

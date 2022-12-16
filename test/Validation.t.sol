@@ -10,6 +10,13 @@ interface IOperatorFilterRegistry {
     function filteredOperators(address addr) external returns (address[] memory);
 }
 
+interface CheatCodes {
+    function addr(uint256) external returns (address);
+    function startPrank(address sender, address origin) external;
+    function deal(address who, uint256 newBalance) external;
+    function stopPrank() external;
+}
+
 contract ValidationTest is Test {
     address constant CANONICAL_OPERATOR_FILTER_REGISTRY = 0x000000000000AAeB6D7670E522A718067333cd4E;
     address constant CANONICAL_OPENSEA_REGISTRANT = 0x3cc6CddA760b79bAfa08dF41ECFA224f810dCeB6;
@@ -21,8 +28,12 @@ contract ValidationTest is Test {
 
     // Owner of the NFT
     address owner;
+    // Tester address
+    address tester1;
 
     address[] filteredOperators;
+
+    CheatCodes cheat = CheatCodes(HEVM_ADDRESS);
 
     function setUp() public virtual {
         // Fork network
@@ -59,8 +70,13 @@ contract ValidationTest is Test {
             // fallback to deploying new contract
             TamarockiRescue nftContract =
                 new TamarockiRescue('https://test.com','https://test.com',0xad6DD2aA32850e57a0986f18f654Dd90dAB39D6c);
-            nftContract.publicMint{value: 0.1 ether}(1);
+            nftContract.setSaleState(true);
+            tester1 = cheat.addr(1);
+            cheat.deal(tester1, 500 ether);
+            cheat.startPrank(tester1, tester1);
+            nftContract.publicMint{value: 0.5 ether}(5);
             contractAddress = address(nftContract);
+            cheat.stopPrank();
         }
     }
 
