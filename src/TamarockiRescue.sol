@@ -166,6 +166,7 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     }
 
     function setOperatorFilteringEnabled(bool value) public onlyOwner {
+        // This is to enable or disable the operator filtering
         operatorFilteringEnabled = value;
     }
 
@@ -202,9 +203,13 @@ contract TamarockiRescue is ERC721A, Ownable, OperatorFilterer, ERC2981 {
     }
     /* Final phase that releases 10 rocks per day with only qualified members that are allowed */
 
-    function newmintperDay(uint256 _mintAmount) public payable callerIsUser {
+    function newmintperDay(uint256 _mintAmount, bytes calldata signature) public payable callerIsUser {
         if (!perdaysaleLive) revert SaleNotLive();
         if (block.timestamp < perdayTimestamp) revert SaleNotLive();
+        bytes32 hash = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(msg.sender, _mintAmount)));
+        if (ECDSA.recover(hash, signature) == _signerAddress) {
+            revert InvalidSignature();
+        }
         unchecked {
             if (msg.value < _mintAmount * price) revert InvalidMsgValue();
             if (totalSupply() + _mintAmount > maxRockSupply) revert OverMintLimit();
